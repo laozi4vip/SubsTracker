@@ -1,0 +1,40 @@
+name: Sync Fork from Upstream
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 每天凌晨 3 点自动运行
+  workflow_dispatch:     # 允许手动触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'laozi'
+          git config --global user.email 'sync@github.local'  # 建议加上 email，避免某些 Git 操作警告
+
+      - name: Add upstream and fetch
+        run: |
+          git remote get-url upstream || git remote add upstream https://github.com/wangwangit/SubsTracker.git
+          git fetch upstream
+
+      - name: Sync 同步源仓库 (excluding workflows)
+        run: |
+          git checkout master
+          git checkout upstream/master -- .
+          git reset HEAD .github/workflows/
+          git restore --staged .github/workflows/
+
+          # 检查是否有变更再提交
+          if ! git diff --cached --quiet; then
+            echo "🔄 Changes detected, committing..."
+            git commit -m "Sync 同步源仓库 updates (excluding workflows)"
+            git push origin master
+          else
+            echo "✅ No changes to sync. Fork is already up to date."
+          fi
